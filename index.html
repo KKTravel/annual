@@ -1,35 +1,40 @@
-<!doctype html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>年刊</title>
-  <style>
-    html, body { height: 100%; margin: 0; }
-    #wrap { height: 100vh; display:flex; align-items:center; justify-content:center; background:#f2f2f2; }
-    #book { width:min(1200px, 100vw); height:min(820px, 100vh); }
-  </style>
-</head>
 <body>
-  <div id="wrap"><div id="book"></div></div>
+  <div id="loading" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#f2f2f2;font:16px/1.4 sans-serif;">
+    載入中…
+  </div>
 
-  <script src="https://unpkg.com/page-flip/dist/js/page-flip.browser.min.js"></script>
+  <div id="wrap">
+    <div id="book"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/page-flip/dist/js/page-flip.browser.min.js"></script>
   <script>
-    const pageCount = 36; // P00 ~ P35
+    window.addEventListener('load', () => {
+      const bookEl = document.getElementById('book');
+      if (!bookEl) {
+        document.getElementById('loading').textContent = 'HTML 缺少 #book 容器';
+        return;
+      }
+      if (!window.St || !St.PageFlip) {
+        document.getElementById('loading').textContent = '翻頁程式載入失敗（St.PageFlip 不存在）';
+        return;
+      }
 
-    const images = Array.from({ length: pageCount }, (_, i) =>
-      `assets/P${String(i).padStart(2, "0")}.jpg`
-    );
+      const pageCount = 36; // P00 ~ P35
+      const images = Array.from({ length: pageCount }, (_, i) =>
+        `assets/P${String(i).padStart(2, "0")}.jpg`
+      );
 
-    const pageFlip = new St.PageFlip(document.getElementById("book"), {
-      width: 600,
-      height: 800,
-      size: "stretch",
-      showCover: true,
-      mobileScrollSupport: false
+      const pageFlip = new St.PageFlip(bookEl, {
+        width: 600,
+        height: 800,
+        size: "stretch",
+        showCover: true,
+        mobileScrollSupport: false
+      });
+
+      pageFlip.loadFromImages(images);
+      document.getElementById('loading').style.display = 'none';
     });
-
-    pageFlip.loadFromImages(images);
   </script>
 </body>
-</html>
