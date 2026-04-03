@@ -27,7 +27,7 @@
     #book {
       width: 100%;
       height: 95vh;
-      max-width: 1800px; /* 想更寬可調大或拿掉 */
+      max-width: 1800px;
     }
 
     #loading {
@@ -41,7 +41,7 @@
       z-index: 10;
     }
 
-    /* 右上角工具列 */
+    /* 工具列 */
     #toolbar {
       position: fixed;
       top: 12px;
@@ -51,10 +51,11 @@
       gap: 8px;
       align-items: center;
     }
+
     #toolbar button, #toolbar a {
       appearance: none;
       border: 1px solid rgba(0,0,0,.15);
-      background: rgba(255,255,255,.9);
+      background: rgba(255,255,255,.92);
       color: #111;
       padding: 8px 10px;
       border-radius: 10px;
@@ -63,6 +64,8 @@
       text-decoration: none;
       line-height: 1;
     }
+
+    #btnExit { display: none; } /* 預設隱藏，進全螢幕才顯示 */
   </style>
 </head>
 
@@ -72,6 +75,7 @@
   <div id="toolbar">
     <a href="annual.pdf" target="_blank" rel="noopener">PDF</a>
     <button id="btnFull">全螢幕</button>
+    <button id="btnExit">退出全螢幕</button>
   </div>
 
   <div id="wrap">
@@ -82,20 +86,20 @@
 
   <script>
     (function () {
-      // ====== 依你檔案調整 ======
       const pageCount = 36; // P00 ~ P35
       const images = Array.from({ length: pageCount }, (_, i) =>
         `assets/P${String(i).padStart(2, "0")}.jpg`
       );
 
       const bookEl = document.getElementById("book");
-      const loadingEl = document.getElementById("loading");
-      const btnFull = document.getElementById("btnFull");
       const wrapEl = document.getElementById("wrap");
+      const loadingEl = document.getElementById("loading");
+
+      const btnFull = document.getElementById("btnFull");
+      const btnExit = document.getElementById("btnExit");
 
       function isNarrow() {
-        // 官網 iframe 常較窄：想更容易變單頁，把 980 調大 (如 1100/1200)
-        return window.innerWidth < 980;
+        return window.innerWidth < 980; // 覺得太小可調大 (1100/1200)
       }
 
       let pageFlip = null;
@@ -108,7 +112,7 @@
         }
 
         const portrait = isNarrow();
-        if (lastPortrait === portrait && pageFlip) return; // 狀態沒變就不重建
+        if (pageFlip && lastPortrait === portrait) return;
         lastPortrait = portrait;
 
         bookEl.innerHTML = "";
@@ -127,35 +131,51 @@
         loadingEl.style.display = "none";
       }
 
-      async function toggleFullscreen() {
+      async function enterFullscreen() {
         try {
-          if (!document.fullscreenElement) {
-            await wrapEl.requestFullscreen();
-            btnFull.textContent = "退出";
-          } else {
-            await document.exitFullscreen();
-            btnFull.textContent = "全螢幕";
-          }
+          await wrapEl.requestFullscreen();
         } catch (e) {
-          alert("全螢幕被瀏覽器阻擋，請再點一次或確認 iframe 有 allowfullscreen。");
+          alert("全螢幕被瀏覽器阻擋。若你是從官網 iframe 開啟，請確認 iframe 有 allowfullscreen。");
         }
       }
 
-      btnFull.addEventListener("click", toggleFullscreen);
+      async function exitFullscreen() {
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+        } catch (e) {}
+      }
 
-      // 雙擊頁面也可全螢幕（可選）
-      wrapEl.addEventListener("dblclick", toggleFullscreen);
+      function syncFullscreenUI() {
+        const on = !!document.fullscreenElement;
+        btnFull.style.display = on ? "none" : "inline-block";
+        btnExit.style.display = on ? "inline-block" : "none";
+      }
 
-      window.addEventListener("load", initFlip);
+      // 進/退全螢幕按鈕
+      btnFull.addEventListener("click", enterFullscreen);
+      btnExit.addEventListener("click", exitFullscreen);
+
+      // 取消雙擊切換全螢幕：不加 dblclick 監聽即可（你之前若有，刪掉）
+      // wrapEl.addEventListener("dblclick", ... )  <-- 不要這行
+
+      // ESC 本來就能退出全螢幕；這裡加強：按 X 也可退出（可選）
+      window.addEventListener("keydown", (e) => {
+        if ((e.key === "x" || e.key === "X") && document.fullscreenElement) {
+          exitFullscreen();
+        }
+      });
+
+      document.addEventListener("fullscreenchange", syncFullscreenUI);
+
+      window.addEventListener("load", () => {
+        initFlip();
+        syncFullscreenUI();
+      });
 
       let t = null;
       window.addEventListener("resize", () => {
         clearTimeout(t);
         t = setTimeout(initFlip, 200);
-      });
-
-      document.addEventListener("fullscreenchange", () => {
-        btnFull.textContent = document.fullscreenElement ? "退出" : "全螢幕";
       });
     })();
   </script>
