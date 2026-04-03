@@ -27,7 +27,7 @@
     #book {
       width: 100%;
       height: 95vh;
-      max-width: 1800px;
+      max-width: 1800px; /* 想更寬可調大或拿掉 */
     }
 
     #loading {
@@ -41,7 +41,7 @@
       z-index: 10;
     }
 
-    /* 工具列 */
+    /* 工具列（要在全螢幕也看得到） */
     #toolbar {
       position: fixed;
       top: 12px;
@@ -65,7 +65,7 @@
       line-height: 1;
     }
 
-    #btnExit { display: none; } /* 預設隱藏，進全螢幕才顯示 */
+    #btnExit { display: none; } /* 進全螢幕才顯示 */
   </style>
 </head>
 
@@ -74,8 +74,8 @@
 
   <div id="toolbar">
     <a href="annual.pdf" target="_blank" rel="noopener">PDF</a>
-    <button id="btnFull">全螢幕</button>
-    <button id="btnExit">退出全螢幕</button>
+    <button id="btnFull" type="button">全螢幕</button>
+    <button id="btnExit" type="button">退出全螢幕</button>
   </div>
 
   <div id="wrap">
@@ -86,20 +86,20 @@
 
   <script>
     (function () {
+      // ===== 依你檔案調整 =====
       const pageCount = 36; // P00 ~ P35
       const images = Array.from({ length: pageCount }, (_, i) =>
         `assets/P${String(i).padStart(2, "0")}.jpg`
       );
 
       const bookEl = document.getElementById("book");
-      const wrapEl = document.getElementById("wrap");
       const loadingEl = document.getElementById("loading");
-
       const btnFull = document.getElementById("btnFull");
       const btnExit = document.getElementById("btnExit");
 
       function isNarrow() {
-        return window.innerWidth < 980; // 覺得太小可調大 (1100/1200)
+        // 官網 iframe 常比較窄：想更常「單頁」就把 980 調大 (如 1100/1200)
+        return window.innerWidth < 980;
       }
 
       let pageFlip = null;
@@ -122,7 +122,7 @@
           width: 600,
           height: 800,
           size: "stretch",
-          showCover: true,
+          showCover: true,            // 不想封面單頁留白可改 false
           mobileScrollSupport: false,
           usePortrait: portrait
         });
@@ -131,11 +131,18 @@
         loadingEl.style.display = "none";
       }
 
+      function syncFullscreenUI() {
+        const on = !!document.fullscreenElement;
+        btnFull.style.display = on ? "none" : "inline-block";
+        btnExit.style.display = on ? "inline-block" : "none";
+      }
+
       async function enterFullscreen() {
         try {
-          await wrapEl.requestFullscreen();
+          // 關鍵：全螢幕要包含 toolbar，所以用整個 document
+          await document.documentElement.requestFullscreen();
         } catch (e) {
-          alert("全螢幕被瀏覽器阻擋。若你是從官網 iframe 開啟，請確認 iframe 有 allowfullscreen。");
+          alert("全螢幕被瀏覽器阻擋。若從官網 iframe 開啟，請確認 iframe 有 allowfullscreen / allow='fullscreen'。");
         }
       }
 
@@ -145,25 +152,10 @@
         } catch (e) {}
       }
 
-      function syncFullscreenUI() {
-        const on = !!document.fullscreenElement;
-        btnFull.style.display = on ? "none" : "inline-block";
-        btnExit.style.display = on ? "inline-block" : "none";
-      }
-
-      // 進/退全螢幕按鈕
       btnFull.addEventListener("click", enterFullscreen);
       btnExit.addEventListener("click", exitFullscreen);
 
-      // 取消雙擊切換全螢幕：不加 dblclick 監聽即可（你之前若有，刪掉）
-      // wrapEl.addEventListener("dblclick", ... )  <-- 不要這行
-
-      // ESC 本來就能退出全螢幕；這裡加強：按 X 也可退出（可選）
-      window.addEventListener("keydown", (e) => {
-        if ((e.key === "x" || e.key === "X") && document.fullscreenElement) {
-          exitFullscreen();
-        }
-      });
+      // 已取消雙擊切換：不要加 dblclick 事件即可
 
       document.addEventListener("fullscreenchange", syncFullscreenUI);
 
