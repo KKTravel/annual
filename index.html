@@ -9,8 +9,9 @@
     html, body {
       height: 100%;
       margin: 0;
-      overflow: hidden;           /* 不要出現橫向捲軸 */
+      overflow: hidden;
       background: #f2f2f2;
+      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
     }
 
     #wrap {
@@ -20,16 +21,15 @@
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      position: relative;
     }
 
-    /* 翻頁容器：吃滿寬度 + 高度接近滿版 */
     #book {
       width: 100%;
-      height: 95vh;               /* 可改 100vh */
-      max-width: 1800px;          /* 避免超寬螢幕太誇張，可自行調大/拿掉 */
+      height: 95vh;
+      max-width: 1800px; /* 想更寬可調大或拿掉 */
     }
 
-    /* 載入提示 */
     #loading {
       position: fixed;
       inset: 0;
@@ -37,8 +37,31 @@
       align-items: center;
       justify-content: center;
       background: #f2f2f2;
-      font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
       color: #333;
+      z-index: 10;
+    }
+
+    /* 右上角工具列 */
+    #toolbar {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 9999;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    #toolbar button, #toolbar a {
+      appearance: none;
+      border: 1px solid rgba(0,0,0,.15);
+      background: rgba(255,255,255,.9);
+      color: #111;
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: none;
+      line-height: 1;
     }
   </style>
 </head>
@@ -46,77 +69,93 @@
 <body>
   <div id="loading">載入中…</div>
 
+  <div id="toolbar">
+    <a href="annual.pdf" target="_blank" rel="noopener">PDF</a>
+    <button id="btnFull">全螢幕</button>
+  </div>
+
   <div id="wrap">
     <div id="book"></div>
   </div>
 
-  <!-- CDN (較穩) -->
   <script src="https://cdn.jsdelivr.net/npm/page-flip/dist/js/page-flip.browser.min.js"></script>
 
   <script>
     (function () {
+      // ====== 依你檔案調整 ======
       const pageCount = 36; // P00 ~ P35
-
       const images = Array.from({ length: pageCount }, (_, i) =>
         `assets/P${String(i).padStart(2, "0")}.jpg`
       );
 
+      const bookEl = document.getElementById("book");
+      const loadingEl = document.getElementById("loading");
+      const btnFull = document.getElementById("btnFull");
+      const wrapEl = document.getElementById("wrap");
+
       function isNarrow() {
-        // 你可把 980 這個門檻調整：數字越大，越容易進單頁模式
+        // 官網 iframe 常較窄：想更容易變單頁，把 980 調大 (如 1100/1200)
         return window.innerWidth < 980;
       }
 
-      let pageFlip;
+      let pageFlip = null;
+      let lastPortrait = null;
 
-      function init() {
-        const bookEl = document.getElementById("book");
-        const loadingEl = document.getElementById("loading");
-
-        if (!bookEl) return;
-
+      function initFlip() {
         if (!window.St || !St.PageFlip) {
           loadingEl.textContent = "翻頁程式載入失敗（St.PageFlip 不存在）";
           return;
         }
 
-        // 清空容器（避免重初始化疊在一起）
+        const portrait = isNarrow();
+        if (lastPortrait === portrait && pageFlip) return; // 狀態沒變就不重建
+        lastPortrait = portrait;
+
         bookEl.innerHTML = "";
+        loadingEl.style.display = "flex";
 
         pageFlip = new St.PageFlip(bookEl, {
           width: 600,
           height: 800,
           size: "stretch",
-
-          showCover: true,          // 若不想封面單頁左邊空白，可改 false
+          showCover: true,
           mobileScrollSupport: false,
-
-          // 關鍵：窄螢幕用單頁，寬螢幕允許雙頁
-          usePortrait: isNarrow(),
-
-          // 可選：限制可縮放範圍，讓顯示更穩
-          minWidth: 320,
-          maxWidth: 2200,
-          minHeight: 420,
-          maxHeight: 1400
+          usePortrait: portrait
         });
 
         pageFlip.loadFromImages(images);
         loadingEl.style.display = "none";
       }
 
-      // 初次載入
-      window.addEventListener("load", init);
+      async function toggleFullscreen() {
+        try {
+          if (!document.fullscreenElement) {
+            await wrapEl.requestFullscreen();
+            btnFull.textContent = "退出";
+          } else {
+            await document.exitFullscreen();
+            btnFull.textContent = "全螢幕";
+          }
+        } catch (e) {
+          alert("全螢幕被瀏覽器阻擋，請再點一次或確認 iframe 有 allowfullscreen。");
+        }
+      }
 
-      // 視窗寬度改變時：重新初始化以切換單頁/雙頁
-      let resizeTimer;
+      btnFull.addEventListener("click", toggleFullscreen);
+
+      // 雙擊頁面也可全螢幕（可選）
+      wrapEl.addEventListener("dblclick", toggleFullscreen);
+
+      window.addEventListener("load", initFlip);
+
+      let t = null;
       window.addEventListener("resize", () => {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
-          // 只有當「窄/寬狀態」改變時才重建，避免一直重建
-          const shouldPortrait = isNarrow();
-          if (pageFlip && pageFlip.getSettings && pageFlip.getSettings().usePortrait === shouldPortrait) return;
-          init();
-        }, 250);
+        clearTimeout(t);
+        t = setTimeout(initFlip, 200);
+      });
+
+      document.addEventListener("fullscreenchange", () => {
+        btnFull.textContent = document.fullscreenElement ? "退出" : "全螢幕";
       });
     })();
   </script>
